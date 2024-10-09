@@ -93,4 +93,142 @@ print(classification_report(y_test, y_pred_RF))
 
 
 #11. Neural Net 
-import tensorflow as tf 
+# Import required libraries
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.utils import to_categorical
+
+# Load the dataset
+df = pd.read_csv(r"C:\Users\tonychen\Documents\Python Files\Predictive Modeling of Student Performance\Predict Students' Dropout and Academic Success UCI Machine Learning.csv", sep=';')
+df.head()
+
+# Check for missing values
+print(df.isnull().sum())
+
+# Since there are no missing values based on your dataset description, we can proceed.
+
+# Convert the target column 'Target' to numerical values using Label Encoding
+le = LabelEncoder()
+df['Target'] = le.fit_transform(df['Target'])
+
+# Define the features (X) and target (y)
+X = df.drop(columns=['Target'])
+y = df['Target']
+
+# Normalize the numerical columns (standardization)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Convert the target variable to categorical (for multi-class classification)
+y_categorical = to_categorical(y)
+
+# Split the data into training and testing sets (80% train, 20% test)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_categorical, test_size=0.2, random_state=42)
+#####################################################
+# Build the neural network model
+model = Sequential()
+
+# Input layer
+model.add(Dense(64, input_dim=X_train.shape[1], activation='relu'))
+
+# Hidden layers
+model.add(Dense(32, activation='relu'))
+model.add(Dense(16, activation='relu'))
+
+# Output layer (since we have 3 classes: Graduate, Dropout, or Enrolled)
+model.add(Dense(3, activation='softmax'))
+
+# Compile the model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model
+history = model.fit(X_train, y_train, validation_split=0.2, epochs=50, batch_size=32)
+###############
+# Evaluate the model on the test set
+test_loss, test_acc = model.evaluate(X_test, y_test, verbose=2)
+
+print(f'Test accuracy: {test_acc:.4f}')
+###############
+# Predict on new data (example from X_test)
+predictions = model.predict(X_test)
+predicted_classes = np.argmax(predictions, axis=1)
+
+# Decode the predicted classes to original labels
+predicted_labels = le.inverse_transform(predicted_classes)
+
+print(predicted_labels[:5])  # Print first 5 predictions
+#################
+# Evaluate the model
+test_loss, test_accuracy = model.evaluate(X_test, y_test)
+print(f"Test Accuracy: {test_accuracy}")
+print(f"Test Loss: {test_loss}")
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Predict the labels for the test set
+y_pred = model.predict(X_test)
+y_pred_classes = np.argmax(y_pred, axis=1)  # Convert one-hot to class indices
+y_true = np.argmax(y_test, axis=1)  # Convert one-hot to class indices
+
+# Confusion matrix
+conf_matrix = confusion_matrix(y_true, y_pred_classes)
+
+# Plot the confusion matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
+plt.ylabel('Actual')
+plt.xlabel('Predicted')
+plt.title('Confusion Matrix')
+plt.show()
+
+from sklearn.metrics import classification_report
+
+# Print classification report
+print(classification_report(y_true, y_pred_classes))
+
+
+# Plot training & validation accuracy values
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Model accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.show()
+
+# Plot training & validation loss values
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.show()
+
+
+from sklearn.metrics import roc_curve, auc
+from sklearn.preprocessing import label_binarize
+
+# Binarize the output classes for ROC curve
+y_test_binarized = label_binarize(y_true, classes=[0, 1, 2])
+y_pred_binarized = label_binarize(y_pred_classes, classes=[0, 1, 2])
+
+# Plot ROC curve for each class
+for i in range(y_test_binarized.shape[1]):
+    fpr, tpr, _ = roc_curve(y_test_binarized[:, i], y_pred_binarized[:, i])
+    roc_auc = auc(fpr, tpr)
+    plt.plot(fpr, tpr, label=f"Class {i} (area = {roc_auc:.2f})")
+
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend(loc="lower right")
+plt.show()
